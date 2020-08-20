@@ -10,23 +10,21 @@ import (
 	"time"
 )
 
-func GetSheets(d *data.Data, w http.ResponseWriter, r *http.Request) {
-	sendJson(w, http.StatusOK, d.Sheets)
+func GetSheets(d *data.Data, w http.ResponseWriter, r *http.Request) []byte {
+	return sendJson(w, http.StatusOK, d.Sheets)
 }
 
-func PostSheet(d *data.Data, w http.ResponseWriter, r *http.Request) {
+func PostSheet(d *data.Data, w http.ResponseWriter, r *http.Request) []byte {
 	sheet := &structs.Sheet{}
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(sheet); err != nil {
-		sendError(w, http.StatusBadRequest, err.Error())
-		return
+		return sendError(w, http.StatusBadRequest, err.Error())
 	}
 	defer r.Body.Close()
 
 	if d.Sheets[sheet.Name] != nil {
-		sendError(w, http.StatusBadRequest, fmt.Sprintf("A sheet named '%s' already exists in database.", sheet.Name))
-		return
+		return sendError(w, http.StatusBadRequest, fmt.Sprintf("A sheet named '%s' already exists in database.", sheet.Name))
 	}
 	sheet.ID = len(d.Sheets) + 1
 	sheet.CreatedAt = time.Now()
@@ -35,43 +33,43 @@ func PostSheet(d *data.Data, w http.ResponseWriter, r *http.Request) {
 	d.Sheets[sheet.Name] = sheet
 	// TODO: Make DB insert query
 
-	sendJson(w, http.StatusCreated, nil)
+	return sendJson(w, http.StatusCreated, nil)
 }
 
-func GetSheet(d *data.Data, w http.ResponseWriter, r *http.Request) {
+func GetSheet(d *data.Data, w http.ResponseWriter, r *http.Request) []byte {
 	vars := mux.Vars(r)
 	name := vars["name"]
 
 	sheet, ok := d.Sheets[name]
 	if !ok {
-		sendError(w, http.StatusNotFound, fmt.Sprintf("No sheet were found with name '%s'", name))
-		return
+		return sendError(w, http.StatusNotFound, fmt.Sprintf("No sheet were found with name '%s'", name))
 	}
-	sendJson(w, http.StatusOK, sheet)
+	return sendJson(w, http.StatusOK, sheet)
 }
 
-func PatchSheet(d *data.Data, w http.ResponseWriter, r *http.Request) {}
+func PatchSheet(d *data.Data, w http.ResponseWriter, r *http.Request) []byte {
+	return sendJson(w, http.StatusOK, nil)
+}
 
-func DeleteSheet(d *data.Data, w http.ResponseWriter, r *http.Request) {
+func DeleteSheet(d *data.Data, w http.ResponseWriter, r *http.Request) []byte {
 	vars := mux.Vars(r)
 	name := vars["name"]
 
 	_, ok := d.Sheets[name]
 	if !ok {
-		sendError(w, http.StatusNotFound, fmt.Sprintf("No sheet were found with name '%s'", name))
-		return
+		return sendError(w, http.StatusNotFound, fmt.Sprintf("No sheet were found with name '%s'", name))
 	}
 	delete(d.Sheets, name)
 	// TODO: Make DB remove query
 
-	sendJson(w, http.StatusOK, nil)
+	return sendJson(w, http.StatusOK, nil)
 }
 
-func sendError(w http.ResponseWriter, code int, message string) {
-	sendJson(w, code, map[string]string{"error": message, "code": string(rune(code))})
+func sendError(w http.ResponseWriter, code int, message string) []byte {
+	return sendJson(w, code, map[string]string{"error": message})
 }
 
-func sendJson(w http.ResponseWriter, code int, payload interface{}) {
+func sendJson(w http.ResponseWriter, code int, payload interface{}) []byte {
 	response, err := json.Marshal(payload)
 	if err != nil {
 		panic(err)
@@ -82,4 +80,5 @@ func sendJson(w http.ResponseWriter, code int, payload interface{}) {
 	if payload != nil {
 		_, _ = w.Write(response)
 	}
+	return response
 }

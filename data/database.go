@@ -1,9 +1,10 @@
 package data
 
 import (
-	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
 	"github.com/netflixaddicts/Go-API/structs"
+	"log"
 )
 
 func New() *Data {
@@ -12,38 +13,29 @@ func New() *Data {
 	}
 }
 
-func (d *Data) Connect(user string, password string, addr string) {
-	db, err := sql.Open("mysql", user+":"+password+"@tcp("+addr+":3306)/netflixaddicts?parseTime=true")
+func (d *Data) Connect(addr string, user string, password string) {
+	log.Print("Connecting to database...")
+	db, err := gorm.Open("mysql", user+":"+password+"@tcp("+addr+":3306)/netflixaddicts?charset=utf8&parseTime=True&loc=Local")
 	if err != nil {
 		panic(err)
 	}
+	log.Printf("Database connected!")
 	d.db = db
+	db.AutoMigrate(&structs.Sheet{})
 
-	sheets, err := d.getSheets()
-	if err != nil {
-		panic(err)
-	}
+	log.Print("Loading Sheets...")
+	var sheets []*structs.Sheet
+	db.Find(&sheets)
 	for _, sheet := range sheets {
 		d.Sheets[sheet.Name] = sheet
 	}
+	log.Printf("%d Sheets has been loaded!", len(d.Sheets))
 }
 
 func (d *Data) getSheets() ([]*structs.Sheet, error) {
-	sheets := make([]*structs.Sheet, 0)
-	result, err := d.db.Query("SELECT * FROM sheet")
-	if err != nil {
-		return nil, err
-	}
-	defer result.Close()
+	var sheets []*structs.Sheet
+	d.db.Find(&sheets)
 
-	for result.Next() {
-		var sheet structs.Sheet
-		err := result.Scan(&sheet.ID, &sheet.Name, &sheet.Title, &sheet.Image, &sheet.Note, &sheet.Styles, &sheet.Synopsis, &sheet.CreatedAt, &sheet.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		sheets = append(sheets, &sheet)
-	}
 	return sheets, nil
 }
 
@@ -64,5 +56,5 @@ func (d *Data) Close() {
 
 type Data struct {
 	Sheets map[string]*structs.Sheet
-	db     *sql.DB
+	db     *gorm.DB
 }

@@ -20,11 +20,13 @@ func New() *Server {
 }
 
 func (s *Server) Initialize() {
+	log.Print("\n\n -==  NetflixAddicts Rest-API.go ==- \n\n")
+
 	if err := godotenv.Load(); err != nil {
 		panic(err)
 	}
 	s.Data = data.New()
-	s.Data.Connect(os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_ADDR"))
+	s.Data.Connect(os.Getenv("DB_ADDR"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"))
 	defer s.Data.Close()
 
 	s.router = mux.NewRouter().StrictSlash(false)
@@ -45,10 +47,12 @@ func (s *Server) handleRoutes(api *mux.Router) {
 	api.HandleFunc("/sheet/{name}", s.handleRequest(router.DeleteSheet)).Methods("DELETE")
 }
 
-type RequestHandler func(d *data.Data, w http.ResponseWriter, r *http.Request)
+type RequestHandler func(d *data.Data, w http.ResponseWriter, r *http.Request) []byte
 
 func (s *Server) handleRequest(handler RequestHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler(s.Data, w, r)
+		log.Printf("[%s - %s - %s] Request received...", r.Method, r.RequestURI, r.RemoteAddr)
+		res := handler(s.Data, w, r)
+		log.Printf("[%s - %s - %s] Request handled, responded with '%s'", r.Method, r.RequestURI, r.RemoteAddr, res)
 	}
 }
